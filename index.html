@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xosist - AI対応 X検索ランチャー</title>
+  <style>
+    :root {
+      --bg-primary: #0a0e17; --bg-secondary: #141c2c; --bg-tertiary: #1f2a3f;
+      --accent-blue: #007BFF; --accent-teal: #00e5ff; --text-primary: #f8fafc;
+      --text-secondary: #94a3b8; --text-muted: #64748b; --border-color: #2e3c54;
+      --btn-danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-primary); color: var(--text-primary);
+      font-family: 'Outfit', 'Noto Sans JP', system-ui, sans-serif;
+      line-height: 1.6; padding: 20px; min-height: 100vh;
+      display: flex; justify-content: center; align-items: flex-start;
+    }
+    .container {
+      width: 100%; max-width: 860px; background: var(--bg-secondary);
+      border: 1px solid var(--border-color); border-radius: 20px;
+      padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+    h1 { font-size: 2.6rem; font-weight: 800; background: linear-gradient(135deg, #fff, var(--accent-teal));
+         -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 6px; }
+    .subtitle { color: var(--text-secondary); font-size: 1.05rem; margin-bottom: 28px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-bottom: 24px; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 14px 16px; background: var(--bg-tertiary); border: 1px solid var(--border-color);
+      border-radius: 10px; color: white; font-size: 1rem; transition: border-color .2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--accent-blue); outline: none; }
+    .filter-group {
+      display: flex; flex-wrap: wrap; gap: 18px; padding: 18px; background: var(--bg-tertiary);
+      border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-color);
+    }
+    .checkbox-container { display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-secondary); }
+    .preview-area { margin-bottom: 24px; }
+    .preview-area label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; }
+    #queryPreview {
+      width: 100%; height: 110px; background: var(--bg-tertiary); border: 1px solid var(--border-color);
+      border-radius: 12px; color: var(--accent-teal); padding: 16px; font-family: 'Courier New', monospace;
+      font-size: 1rem; resize: vertical; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .btn {
+      padding: 14px 28px; font-weight: 700; border: none; border-radius: 12px; cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-size: 1rem; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn-primary { background: var(--accent-blue); color: white; }
+    .btn-accent { background: linear-gradient(135deg, #1d9bf0, var(--accent-teal)); color: white; }
+    .btn-secondary { background: var(--bg-tertiary); border: 1px solid var(--border-color); color: white; }
+    .btn-danger { background: transparent; border: 1px solid var(--btn-danger); color: var(--btn-danger); }
+    .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 30px; }
+    .history-section h3 { color: var(--text-secondary); margin-bottom: 12px; }
+    .history-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      background: var(--bg-tertiary); padding: 14px 18px; border-radius: 10px; margin-bottom: 8px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .history-item:hover { border-color: var(--accent-blue); }
+    .history-item-query { flex: 1; font-family: monospace; color: #e0f2fe; word-break: break-all; }
+    .delete-btn { font-size: 1.4rem; color: #f87171; background: none; border: none; cursor: pointer; padding: 0 8px; }
+    footer { text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Xosist</h1>
+      <p class="subtitle">AIエージェント対応・超軽量 X検索ランチャー</p>
+    </header>
+
+    <main>
+      <div class="form-grid">
+        <div class="form-group"><label>キーワード</label><input type="text" id="keywords" placeholder="Grok xAI"></div>
+        <div class="form-group"><label>完全一致フレーズ</label><input type="text" id="exactPhrase" placeholder="最高のAI"></div>
+        <div class="form-group"><label>from: ユーザー</label><input type="text" id="fromUser" placeholder="elonmusk"></div>
+        <div class="form-group"><label>除外ワード</label><input type="text" id="excludeWords" placeholder="PR 広告"></div>
+        <div class="form-group"><label>since: 開始日</label><input type="date" id="sinceDate"></div>
+        <div class="form-group"><label>until: 終了日</label><input type="date" id="untilDate"></div>
+        <div class="form-group"><label>min_faves:</label><input type="number" id="minFaves" placeholder="100"></div>
+        <div class="form-group"><label>min_retweets:</label><input type="number" id="minRetweets" placeholder="50"></div>
+      </div>
+
+      <div class="filter-group">
+        <label class="checkbox-container"><input type="checkbox" id="hasImages"> 画像あり</label>
+        <label class="checkbox-container"><input type="checkbox" id="hasVideos"> 動画あり</label>
+        <label class="checkbox-container"><input type="checkbox" id="excludeLinks"> リンク除外</label>
+        <label class="checkbox-container"><input type="checkbox" id="safeSearch"> 安全検索のみ</label>
+      </div>
+
+      <div class="preview-area">
+        <label>生成されたクエリ</label>
+        <textarea id="queryPreview" readonly placeholder="条件を入力するとここにクエリが自動生成されます..."></textarea>
+        <div style="margin-top: 12px; display: flex; gap: 12px;">
+          <button id="btnCopy" class="btn btn-secondary">📋 コピー</button>
+          <button id="btnReset" class="btn btn-danger">リセット</button>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button id="btnSearchLive" class="btn btn-primary">最新で検索</button>
+        <button id="btnSearchTop" class="btn btn-accent">話題で検索</button>
+      </div>
+    </main>
+
+    <section class="history-section">
+      <h3>最近使ったクエリ</h3>
+      <ul id="historyList" style="list-style:none; padding:0; max-height:260px; overflow-y:auto;"></ul>
+    </section>
+
+    <footer>
+      © 2026 Xosist • 1ファイル完全版 • AIエージェント対応
+    </footer>
+  </div>
+
+  <script>
+    // ==================== Xosist AIエージェントAPI ====================
+    const Xosist = {
+      version: "2.0.0-complete",
+
+      generateQuery(params = {}) {
+        const parts = [];
+        if (params.keywords) parts.push(params.keywords.trim());
+        if (params.exactPhrase) parts.push(`"${params.exactPhrase.trim()}"`);
+        if (params.from) parts.push(`from:${params.from.replace('@', '')}`);
+        if (params.exclude) {
+          params.exclude.trim().split(/\s+/).forEach(w => { if (w) parts.push(`-${w}`); });
+        }
+        if (params.since) parts.push(`since:${params.since}`);
+        if (params.until) parts.push(`until:${params.until}`);
+        if (params.minFaves) parts.push(`min_faves:${params.minFaves}`);
+        if (params.minRetweets) parts.push(`min_retweets:${params.minRetweets}`);
+        if (params.lang) parts.push(`lang:${params.lang}`);
+        if (params.hasImages) parts.push('filter:images');
+        if (params.hasVideos) parts.push('filter:videos');
+        if (params.excludeLinks) parts.push('-filter:links');
+        if (params.safeSearch) parts.push('filter:safe');
+        return parts.join(' ');
+      },
+
+      openSearch(params = {}, mode = 'live') {
+        const query = this.generateQuery(params);
+        if (!query) return null;
+        const url = `https://x.com/search?q=${encodeURIComponent(query)}&src=typed_query&f=${mode}`;
+        if (typeof window !== 'undefined') window.open(url, '_blank');
+        return { query, url };
+      },
+
+      headlessGenerate(params) {
+        return this.generateQuery(params);
+      }
+    };
+
+    window.Xosist = Xosist;
+    console.log('%c[Xosist] AIエージェントAPI準備完了 → window.Xosist', 'color:#67e8f9; font-weight:bold');
+
+    // ==================== UIロジック ====================
+    document.addEventListener('DOMContentLoaded', () => {
+      const ids = ['keywords', 'exactPhrase', 'fromUser', 'excludeWords', 'sinceDate', 'untilDate', 'minFaves', 'minRetweets'];
+      const checkboxes = ['hasImages', 'hasVideos', 'excludeLinks', 'safeSearch'];
+      const fields = {};
+      ids.forEach(id => fields[id] = document.getElementById(id));
+      checkboxes.forEach(id => fields[id] = document.getElementById(id));
+
+      const queryPreview = document.getElementById('queryPreview');
+      const btnCopy = document.getElementById('btnCopy');
+      const btnReset = document.getElementById('btnReset');
+      const btnSearchLive = document.getElementById('btnSearchLive');
+      const btnSearchTop = document.getElementById('btnSearchTop');
+      const historyList = document.getElementById('historyList');
+
+      function buildQuery() {
+        const params = {
+          keywords: fields.keywords.value,
+          exactPhrase: fields.exactPhrase.value,
+          from: fields.fromUser.value,
+          exclude: fields.excludeWords.value,
+          since: fields.sinceDate.value,
+          until: fields.untilDate.value,
+          minFaves: fields.minFaves.value,
+          minRetweets: fields.minRetweets.value,
+          lang: 'ja',
+          hasImages: fields.hasImages.checked,
+          hasVideos: fields.hasVideos.checked,
+          excludeLinks: fields.excludeLinks.checked,
+          safeSearch: fields.safeSearch.checked
+        };
+
+        // 日付バリデーション
+        if (params.since && params.until && params.since > params.until) {
+          queryPreview.value = '⚠️ since日付がuntil日付より後になっています';
+          return '';
+        }
+
+        const query = Xosist.generateQuery(params);
+        queryPreview.value = query || '（条件を入力してください）';
+        return query;
+      }
+
+      // リアルタイム更新
+      [...Object.values(fields)].forEach(el => {
+        if (el) {
+          el.addEventListener('input', buildQuery);
+          el.addEventListener('change', buildQuery);
+        }
+      });
+
+      // コピー
+      btnCopy.addEventListener('click', () => {
+        const q = queryPreview.value.trim();
+        if (!q || q.includes('⚠️') || q.includes('条件を入力')) return alert('クエリを入力してください');
+        navigator.clipboard.writeText(q).then(() => {
+          const orig = btnCopy.textContent;
+          btnCopy.textContent = '✅ コピー完了！';
+          setTimeout(() => btnCopy.textContent = orig, 1600);
+        });
+      });
+
+      // リセット
+      btnReset.addEventListener('click', () => {
+        ids.forEach(id => fields[id].value = '');
+        checkboxes.forEach(id => fields[id].checked = false);
+        buildQuery();
+      });
+
+      // 履歴
+      function getHistory() {
+        try { return JSON.parse(localStorage.getItem('xosist_history') || '[]'); } catch { return []; }
+      }
+      function saveHistory(query, state) {
+        if (!query) return;
+        let history = getHistory().filter(h => h.query !== query);
+        history.unshift({ query, state, timestamp: new Date().toLocaleString('ja-JP') });
+        if (history.length > 12) history = history.slice(0, 12);
+        localStorage.setItem('xosist_history', JSON.stringify(history));
+        renderHistory();
+      }
+      function deleteHistory(query) {
+        const history = getHistory().filter(h => h.query !== query);
+        localStorage.setItem('xosist_history', JSON.stringify(history));
+        renderHistory();
+      }
+      function renderHistory() {
+        const history = getHistory();
+        historyList.innerHTML = '';
+        if (history.length === 0) {
+          historyList.innerHTML = '<li style="color:#64748b; padding:12px;">履歴はありません</li>';
+          return;
+        }
+        history.forEach(item => {
+          const li = document.createElement('li');
+          li.className = 'history-item';
+          li.innerHTML = `
+            <div class="history-item-query">${item.query}</div>
+            <div style="color:#64748b; font-size:0.75rem; white-space:nowrap;">${item.timestamp.split(' ')[0]}</div>
+            <button class="delete-btn">×</button>
+          `;
+          li.querySelector('.delete-btn').onclick = e => { e.stopPropagation(); deleteHistory(item.query); };
+          li.onclick = () => {
+            // 状態復元
+            const s = item.state;
+            ids.forEach(id => { if (fields[id]) fields[id].value = s[id] || ''; });
+            checkboxes.forEach(id => { if (fields[id]) fields[id].checked = !!s[id]; });
+            buildQuery();
+          };
+          historyList.appendChild(li);
+        });
+      }
+
+      function captureState() {
+        const state = {};
+        ids.forEach(id => state[id] = fields[id].value);
+        checkboxes.forEach(id => state[id] = fields[id].checked);
+        return state;
+      }
+
+      function launchSearch(mode) {
+        const query = buildQuery();
+        if (!query || query.includes('⚠️') || query.includes('条件を入力')) {
+          return alert('有効な検索条件を入力してください');
+        }
+        saveHistory(query, captureState());
+        const url = `https://x.com/search?q=${encodeURIComponent(query)}&src=typed_query&f=${mode}`;
+        window.open(url, '_blank');
+      }
+
+      btnSearchLive.addEventListener('click', () => launchSearch('live'));
+      btnSearchTop.addEventListener('click', () => launchSearch('top'));
+
+      // 初期化
+      buildQuery();
+      renderHistory();
+
+      // URLパラメータ対応（?q=...）
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('q')) {
+        fields.keywords.value = params.get('q');
+        buildQuery();
+      }
+    });
+  </script>
+</body>
+</html>
